@@ -23,16 +23,14 @@ import com.haulmont.cuba.gui.data.CollectionDatasource;
 import com.haulmont.cuba.gui.data.HierarchicalDatasource;
 
 import javax.annotation.Nullable;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public class DatasourceTreeDataGridItems<E extends Entity<K>, K>
         extends SortableDatasourceDataGridItems<E, K>
         implements TreeDataGridItems<E> {
-
-    protected List<Object> itemIdsOrder = new ArrayList<>();
 
     @SuppressWarnings("unchecked")
     public DatasourceTreeDataGridItems(HierarchicalDatasource<E, K> datasource) {
@@ -73,42 +71,17 @@ public class DatasourceTreeDataGridItems<E extends Entity<K>, K>
     }
 
     @Override
-    public void sort(Object[] propertyId, boolean[] ascending) {
-        super.sort(propertyId, ascending);
-
-        updateItemIdsOrder();
-    }
-
-    @Override
-    public void resetSortOrder() {
-        super.resetSortOrder();
-
-        updateItemIdsOrder();
-    }
-
-    @Override
-    protected void datasourceCollectionChanged(CollectionDatasource.CollectionChangeEvent<E, K> e) {
-        super.datasourceCollectionChanged(e);
-
-        updateItemIdsOrder();
-    }
-
-    @Override
     public int indexOfItem(E item) {
+        List<Object> itemIdsOrder = datasource.getItems()
+                .stream()
+                .filter(e -> getParent(e) == null)
+                .flatMap(this::addItemToOrder)
+                .collect(Collectors.toList());
+
         return itemIdsOrder.indexOf(item.getId());
     }
 
-    protected void updateItemIdsOrder() {
-        itemIdsOrder.clear();
-
-        datasource.getItems()
-                .stream()
-                .filter(item -> getParent(item) == null)
-                .forEach(this::addItemIdToOrder);
-    }
-
-    protected void addItemIdToOrder(E item) {
-        itemIdsOrder.add(item.getId());
-        getChildren(item).forEach(this::addItemIdToOrder);
+    protected Stream<Object> addItemToOrder(E item) {
+        return Stream.concat(Stream.of(item.getId()), getChildren(item).flatMap(this::addItemToOrder));
     }
 }
